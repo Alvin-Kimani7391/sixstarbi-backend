@@ -18,7 +18,7 @@ const wrap = (title, body) => `
   </div>`;
 
 async function sendVerificationEmail(user, token) {
-  const link = `${env.APP_URL}/verify-email?token=${token}`;
+  const link = `${env.APP_URL}/#/verify-email?token=${token}`; 
   return safeSend({
     to: user.email,
     subject: 'Verify your Six Star Intelligence account',
@@ -27,7 +27,7 @@ async function sendVerificationEmail(user, token) {
 }
 
 async function sendPasswordResetEmail(user, token) {
-  const link = `${env.APP_URL}/reset-password?token=${token}`;
+  const link = `${env.APP_URL}/#/reset-password?token=${token}`;
   return safeSend({
     to: user.email,
     subject: 'Reset your Six Star Intelligence password',

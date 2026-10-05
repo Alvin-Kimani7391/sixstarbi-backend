@@ -56,6 +56,15 @@ async function getDefaultLocation(businessId) {
   return Location.findOne({ businessId, isDefault: true });
 }
 
+
+async function resolveLocation(businessId, locationId) {
+  const loc = locationId
+    ? await Location.findOne({ _id: locationId, businessId, active: true })
+    : await getDefaultLocation(businessId);
+  if (!loc) throw ApiError.badRequest('Location not found for this business', 'LOCATION_NOT_FOUND');
+  return loc;
+}
+
 module.exports = {
-  createBusiness, getBusiness, updateBusiness, listLocations, getDefaultLocation,
+  createBusiness, getBusiness, updateBusiness, listLocations, getDefaultLocation, resolveLocation,
 };

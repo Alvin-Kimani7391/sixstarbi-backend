@@ -1,17 +1,29 @@
-const engine = require('./decision.engine');
+const payoff = require('./decision.engine');
+const breakEven = require('./breakeven.engine');
+const tree = require('./tree.engine');
 const repo = require('../repositories/decision.repository');
 const ai = require('./ai.service');
 const ApiError = require('../utils/ApiError');
 
-const preview = (input) => engine.analyze(input);
+const analyzers = {
+  PAYOFF: (input) => {
+    const r = payoff.analyze(input);
+    r.headline = `Order ${r.recommendation.order} units`;
+    return r;
+  },
+  BREAKEVEN: breakEven.analyze,
+  TREE: tree.analyze,
+};
 
-async function create(user, businessId, input) {
-  const result = engine.analyze(input);
+const preview = (input, kind = 'PAYOFF') => analyzers[kind](input);
+
+async function create(user, businessId, input, kind = 'PAYOFF') {
+  const result = analyzers[kind](input);
   const { title, ...inputs } = input;
-  return repo.create({ businessId, userId: user._id, title, inputs, result });
+  return repo.create({ businessId, userId: user._id, kind, title, inputs, result });
 }
 
-const list = (businessId) => repo.list(businessId);
+const list = (businessId, kind) => repo.list(businessId, kind);
 
 async function get(businessId, id) {
   const p = await repo.findById(businessId, id);

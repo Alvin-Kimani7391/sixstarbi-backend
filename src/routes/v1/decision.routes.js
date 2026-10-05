@@ -18,6 +18,8 @@ router.post('/', validate({ body: v.problem }), ctrl.create);
 router.get('/', ctrl.list);
 router.get('/:id', validate({ params: v.idParam }), ctrl.get);
 router.post('/:id/explain', explainLimiter, validate({ params: v.idParam }), ctrl.explain);
+router.post('/break-even', validate({ body: v.breakEven }), ctrl.createBreakEven);
+router.post('/tree', validate({ body: v.tree }), ctrl.createTree);
 router.delete('/:id', validate({ params: v.idParam }), ctrl.remove);
 
 module.exports = router; 

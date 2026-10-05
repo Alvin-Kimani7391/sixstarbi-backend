@@ -7,6 +7,12 @@ router.get('/health', (_req, res) =>
 router.use('/auth', require('./auth.routes'));
 router.use('/business', require('./business.routes'));
 router.use('/decisions', require('./decision.routes'));
+router.use('/products', require('./product.routes'));
+router.use('/sales', require('./sales.routes'));
+router.use('/purchases', require('./purchase.routes'));
+router.use('/inventory', require('./inventory.routes'));
+router.use('/uploads', require('./upload.routes'));
+router.use('/imports', require('./import.routes'));
 
 // Registered in later batches:
 // router.use('/products', require('./product.routes'));

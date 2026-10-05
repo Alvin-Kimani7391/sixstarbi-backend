@@ -4,6 +4,7 @@ const schema = new mongoose.Schema(
   {
     businessId: { type: mongoose.Schema.Types.ObjectId, ref: 'Business', required: true, index: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    kind: { type: String, enum: ['PAYOFF', 'BREAKEVEN', 'TREE'], default: 'PAYOFF', index: true },
     title: { type: String, required: true, trim: true },
     inputs: { type: mongoose.Schema.Types.Mixed, required: true },
     result: { type: mongoose.Schema.Types.Mixed, required: true },

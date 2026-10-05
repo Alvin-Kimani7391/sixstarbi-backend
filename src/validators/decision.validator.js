@@ -34,4 +34,36 @@ const problem = z
 
 const idParam = z.object({ id: z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id') });
 
-module.exports = { problem, idParam };
+
+const breakEven = z.object({
+  title: z.string().trim().min(2).max(160),
+  fixedCost: num.min(0),
+  sellingPrice: num.min(0),
+  variableCost: num.min(0),
+  expectedUnits: num.min(0).optional(),
+  targetProfit: num.optional(),
+});
+
+const node = z.lazy(() =>
+  z.object({
+    type: z.enum(['decision', 'chance', 'end']),
+    label: z.string().trim().max(120).default(''),
+    payoff: num.optional(),
+    branches: z
+      .array(
+        z.object({
+          label: z.string().trim().min(1).max(120),
+          probability: num.min(0).max(1).optional(),
+          cost: num.optional(),
+          node,
+        })
+      )
+      .max(12)
+      .optional(),
+  })
+);
+
+const tree = z.object({ title: z.string().trim().min(2).max(160), root: node });
+
+
+module.exports = { problem, idParam, breakEven, tree };

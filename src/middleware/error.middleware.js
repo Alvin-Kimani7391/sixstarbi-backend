@@ -20,7 +20,7 @@ const errorHandler = (err, _req, res, _next) => {
   } else if (err.code === 11000) {
     status = 409;
     code = 'DUPLICATE';
-    const field = Object.keys(err.keyPattern || {})[0] || 'field';
+        const field = Object.keys(err.keyPattern || {}).find((k) => k !== 'businessId') || 'field';
     message = `A record with this ${field} already exists`;
   } else if (err.name === 'CastError') {
     status = 400;

@@ -34,9 +34,10 @@ async function get(businessId, id) {
 async function explain(businessId, id) {
   const problem = await get(businessId, id);
   const out = await ai.explainDecision(problem);
-  problem.explanation = { text: out.text, source: out.source, generatedAt: new Date() };
+  const explanation = { text: out.text, source: out.source, generatedAt: new Date() };
+  problem.explanation = explanation;
   await problem.save();
-  return problem.explanation;
+  return { ...explanation, reason: out.reason };
 }
 
 async function remove(businessId, id) {

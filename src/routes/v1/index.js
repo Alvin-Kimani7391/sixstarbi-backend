@@ -13,6 +13,7 @@ router.use('/purchases', require('./purchase.routes'));
 router.use('/inventory', require('./inventory.routes'));
 router.use('/uploads', require('./upload.routes'));
 router.use('/imports', require('./import.routes'));
+router.use('/ai', require('./ai.routes'));
 
 // Registered in later batches:
 // router.use('/products', require('./product.routes'));

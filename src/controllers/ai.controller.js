@@ -19,4 +19,7 @@ const businessPlan = asyncHandler(async (req, res) => {
 const conversations = asyncHandler(async (req, res) => ok(res, await svc.conversations({ user: req.user, businessId: req.businessId })));
 const status = asyncHandler(async (_req, res) => ok(res, await ai.status()));
 
-module.exports = { ask, explain, summarize, businessPlan, conversations, status };
+
+const welcome = asyncHandler(async (req, res) => ok(res, await svc.welcome({ user: req.user, businessId: req.businessId })));
+
+module.exports = { ask, welcome, explain, summarize, businessPlan, conversations, status };

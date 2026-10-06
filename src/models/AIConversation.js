@@ -12,6 +12,8 @@ const schema = new Schema(
       content: { type: String, required: true, maxlength: 8000 },
       source: String,
       createdAt: { type: Date, default: Date.now },
+          lastIntent: String,
+    lastProductId: String,
     }],
   },
   { timestamps: true }

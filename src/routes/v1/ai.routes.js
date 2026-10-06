@@ -15,6 +15,7 @@ router.use(protect, requireBusiness);
 
 router.get('/status', authorize(R.OWNER, R.MANAGER, R.ADMIN), limiter, ctrl.status);
 router.get('/conversations', ctrl.conversations);
+router.get('/welcome', ctrl.welcome);
 router.post('/ask', limiter, validate({ body: v.ask }), ctrl.ask);
 router.post('/explain', limiter, validate({ body: v.explain }), ctrl.explain);
 router.post('/summarize', limiter, validate({ body: v.summarize }), ctrl.summarize);

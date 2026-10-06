@@ -6,9 +6,12 @@ module.exports = {
   findOwn: (businessId, userId, id) => AIConversation.findOne({ _id: id, businessId, userId }),
   listOwn: (businessId, userId, limit = 30) =>
     AIConversation.find({ businessId, userId }).sort({ updatedAt: -1 }).limit(limit).lean(),
-  append: (businessId, userId, id, messages) =>
+    append: (businessId, userId, id, messages, meta) =>
     AIConversation.updateOne(
       { _id: id, businessId, userId },
-      { $push: { messages: { $each: messages, $slice: -100 } } }
+      {
+        $push: { messages: { $each: messages, $slice: -100 } },
+        ...(meta && Object.keys(meta).length ? { $set: meta } : {}),
+      }
     ),
 };

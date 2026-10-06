@@ -5,6 +5,7 @@ const ctxService = require('./aiContext.service');
 const decisionService = require('./decision.service');
 const convRepo = require('../repositories/aiConversation.repository');
 const ApiError = require('../utils/ApiError');
+const chat = require('./chat.service');
 
 const ACTION_LABEL = { ORDER: 'Order', REDUCE_STOCK: 'Stop buying and reduce stock of', CLEAR_STOCK: 'Clear stock of' };
 const pct = (c) => `${Math.round((c || 0) * 100)}%`;
@@ -42,51 +43,96 @@ const SYSTEM_ANSWERS = {
   SUPPLIER: 'Supplier comparison needs supplier data from Six Star Suppliers, which is a later phase. For now, enter the supplier name on each purchase so it is recorded for later.',
 };
 
-/* ---------- ask ---------- */
+const DATA_INTENTS = new Set([
+  'WHAT_TO_BUY', 'ORDER_QTY', 'WHEN_ORDER', 'STOP_BUYING', 'OVERSTOCK', 'DEAD_STOCK',
+  'WHAT_TODAY', 'PROFIT_WHY', 'TOP_PROFIT', 'SALES', 'PRODUCT',
+]);
+
 async function ask({ user, businessId, question, conversationId }) {
   let conv = null;
   if (conversationId) {
     conv = await convRepo.findOwn(businessId, user._id, conversationId);
     if (!conv) throw ApiError.notFound('Conversation not found');
   }
-  const facts = await ctxService.buildFacts(businessId);
-  const { intent, product } = intentService.detect(question, facts.products);
 
-  let out;
-  if (intent === 'TOOLS' || intent === 'SUPPLIER') {
-    out = { text: SYSTEM_ANSWERS[intent], source: 'system', reason: null };
-  } else if (!facts.hasProducts) {
-    out = { text: SYSTEM_ANSWERS.NO_PRODUCTS, source: 'system', reason: null };
+  const facts = await ctxService.buildFacts(businessId);
+  const profile = chat.profile(user, facts);
+  const split = chat.splitGreeting(question);
+  const q = split.rest || question;
+  const social = split.greeted && !split.rest ? 'GREETING' : chat.detectSocial(q);
+
+  let out, intent = 'CHAT', product = null, ctx = null;
+
+  if (social) {
+    // Small talk is answered locally: instant, free, and works when Gemini is down.
+    out = { text: chat.reply(social, profile, facts), source: 'system', reason: null };
   } else {
-    var ctx = ctxService.contextFor(intent, facts, product); // eslint-disable-line no-var
-    const history = conv ? conv.messages.slice(-6).map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 600)}`) : [];
-    const prompt = [
-      history.length ? `Conversation so far:\n${history.join('\n')}` : '',
-      `Question: ${question}`,
-      'Calculated data (JSON, the only source of truth):',
-      JSON.stringify(ctx),
-      'Answer in under 250 words.',
-    ].filter(Boolean).join('\n\n');
-    out = await ai.run({ prompt, fallback: () => fallbackAnswer(intent, ctx) });
+    const d = intentService.detect(q, facts.products);
+    intent = d.intent;
+    product = d.product;
+    if (chat.isFollowUp(q) && conv) {
+      if (intent === 'GENERAL' && conv.lastIntent) intent = conv.lastIntent;
+      if (!product && conv.lastProductId) product = facts.products.find((p) => p.productId === conv.lastProductId) || null;
+    }
+
+    if (intent === 'TOOLS' || intent === 'SUPPLIER') {
+      out = { text: SYSTEM_ANSWERS[intent], source: 'system', reason: null };
+    } else if (DATA_INTENTS.has(intent) && !facts.hasProducts) {
+      out = { text: chat.noData(profile), source: 'system', reason: null };
+    } else {
+      ctx = ctxService.contextFor(intent, facts, product);
+      const isData = DATA_INTENTS.has(intent);
+      const history = conv ? conv.messages.slice(-6).map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 600)}`) : [];
+      const prompt = [
+        `The user is ${profile.firstName}, owner of ${profile.businessName}.`,
+        history.length ? `Conversation so far:\n${history.join('\n')}` : '',
+        `Message: ${q}`,
+        'Calculated data (JSON, the only source of truth for their numbers):',
+        JSON.stringify(ctx),
+        isData ? `${chat.TONE} Answer in under 250 words.` : 'Reply conversationally.',
+      ].filter(Boolean).join('\n\n');
+
+      out = await ai.run({
+        prompt,
+        system: isData ? undefined : chat.CHAT_SYSTEM,
+        fallback: () => (isData ? fallbackAnswer(intent, ctx) : chat.reply('UNKNOWN', profile, facts)),
+      });
+    }
   }
+
+  if (split.greeted && split.rest) out = { ...out, text: `${chat.hello(profile)}\n\n${out.text}` };
 
   const now = new Date();
   const messages = [
     { role: 'user', content: question, createdAt: now },
     { role: 'assistant', content: out.text, source: out.source, createdAt: now },
   ];
+  const meta = {};
+  if (DATA_INTENTS.has(intent)) meta.lastIntent = intent;
+  if (product) meta.lastProductId = product.productId;
+
   if (conv) {
-    await convRepo.append(businessId, user._id, conv._id, messages);
+    await convRepo.append(businessId, user._id, conv._id, messages, meta);
   } else {
-    conv = await convRepo.create({ businessId, userId: user._id, title: question.slice(0, 60), messages });
+    conv = await convRepo.create({ businessId, userId: user._id, title: question.slice(0, 60), messages, ...meta });
   }
 
   return {
     answer: out.text, source: out.source, reason: out.reason, conversationId: conv._id, intent,
     recommendations: (ctx && ctx.recommendations) || [],
+    suggestions: chat.suggestions(facts),
   };
 }
 
+// Opening message for the Ask page. Local only, so it never uses Gemini quota.
+async function welcome({ user, businessId }) {
+  const facts = await ctxService.buildFacts(businessId);
+  const profile = chat.profile(user, facts);
+  return {
+    answer: chat.reply('GREETING', profile, facts), source: 'system', reason: null,
+    suggestions: chat.suggestions(facts), recommendations: [],
+  };
+}
 /* ---------- explain ---------- */
 async function explain({ businessId, input }) {
   if (input.decisionId) {
@@ -181,4 +227,4 @@ async function conversations({ user, businessId }) {
   return { conversations: await convRepo.listOwn(businessId, user._id) };
 }
 
-module.exports = { ask, explain, summarize, businessPlan, conversations, fallbackAnswer };
+module.exports = { ask, welcome, explain, summarize, businessPlan, conversations, fallbackAnswer };
